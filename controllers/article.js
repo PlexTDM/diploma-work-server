@@ -19,7 +19,7 @@ class ArticleController {
                 return res.status(400).json({ error: 'expression empty' });
             }
             const date = new Date();
-            const fullDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} ${date.getHours()}:${date.getMinutes()}`;
+            const fullDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} ${date.getHours()}:${(date.getMinutes()<10?'0':'') + date.getMinutes()}`;
             const formData = {
                 title: title,
                 body: article,
