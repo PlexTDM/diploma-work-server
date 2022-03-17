@@ -1,15 +1,26 @@
 const { MongoClient } = require('mongodb');
 var ObjectId = require('mongodb').ObjectId; 
+const { verify } = require('jsonwebtoken');
 require('dotenv').config();
 
 const client = new MongoClient(process.env.MONGO_URI);
+client.connect().then(() => console.log('connected'));
 
 class ArticleController {
+    articlesDb = client.db('articleDb').collection('articles');
+    usersDb = client.db('articleDb').collection('users');
     uploadArticle = async (req, res) => {
-        console.log(req.body)
-        //  or this xD 
-        // async uploadArticle(req, res){
-        const db = client.db('articleDb').collection('articles');
+        let hasError = false;
+            const authHeader = req.headers['authorization'];
+            const access_token = authHeader && authHeader.split(' ')[1];
+            if (access_token === null) return res.status(401);
+            verify(access_token, process.env.SECRET_ACCESS_TOKEN, (err) => {
+                if (err) {
+                    res.status(403).json({ message: err });
+                    return hasError = true;
+                }
+            });
+            if(hasError) return;
         try {
             const { article, author, type, title } = req.body;
             if (article.trim() === ''||
@@ -27,8 +38,7 @@ class ArticleController {
                 type: type,
                 date: fullDate
             }
-            await client.connect();
-            db.insertOne(formData);
+            this.articlesDb.insertOne(formData);
             res.json({ message: 'success' });
         } catch (err) {
             res.status(500).json({ error: err });
@@ -38,17 +48,14 @@ class ArticleController {
 
     getArticles = async (req, res) => {
         const {limit} = req.query;
-        const db = client.db('articleDb').collection('articles');
         try {
             if(!limit || limit.trim() === ''){
-                await client.connect();
-                const result = await db.find({}).toArray();
+                const result = await this.articlesDb.find({}).toArray();
                 return res.json({
                     message: result
                 });
             }
-            await client.connect();
-            const result = await db.find({}).limit(limit).toArray();
+            const result = await this.articlesDb.find({}).limit(limit).toArray();
             res.json({
                 message: result
             });
@@ -59,31 +66,102 @@ class ArticleController {
     }
     getArticlesById = async (req, res) => {
         const {id} = req.params;
-        const db = client.db('articleDb').collection('articles');
         try {
             if(!id || id.trim() === '')return
-            await client.connect();
             const objId = new ObjectId(id);
-            const result = await db.find({_id:objId}).toArray();
+            const result = await this.articlesDb.find({_id:objId}).toArray();
+            const authorId = new ObjectId(result[0].author);
+            const author = await this.usersDb.find({_id:authorId}).toArray();
             res.json({
-                message: result
+                article: result[0],
+                author: author[0] || {}
             });
         } catch (error) {
 
         }
     }
+
+    updateArticles = async (req, res) => {
+        const {title,body, type} = req.body;
+        const _id = req.params.id;
+        try {
+            const authHeader = req.headers['authorization'];
+            const access_token = authHeader && authHeader.split(' ')[1];
+            if (access_token === null){
+                res.status(401);
+                return
+            }
+            const articleId = new ObjectId(_id);
+            let willReturn = false;
+            await verify(access_token, process.env.SECRET_ACCESS_TOKEN, async (err, val) => {
+                if (err) {
+                    res.status(403).json({ message: err });
+                    willReturn = true;
+                }
+                const userId = new ObjectId(val.id);
+                const user = await this.usersDb.findOne({_id:userId});
+                if(user._id.toString() !== val.id){
+                    res.status(403).json({ message: 'not authorized' });
+                    willReturn = true;
+                }
+            });
+            if(willReturn)return
+            const dataObj = {
+                title: title,
+                body: body,
+                type: type
+            }
+            await this.articlesDb.findOneAndUpdate({_id:articleId},{$set:dataObj});
+            res.json({
+                message: 'success'
+            });
+        } catch (error) {
+            res.status(500).json({ error: error });
+            console.log(error.message);
+        }
+    }
+
+    deleteArticles = async (req, res) => {
+        const _id = req.params.id;
+        try {
+            const authHeader = req.headers['authorization'];
+            const access_token = authHeader && authHeader.split(' ')[1];
+            if (access_token === null){
+                res.status(401);
+                return
+            }
+            const articleId = new ObjectId(_id);
+            let willReturn = false;
+            await verify(access_token, process.env.SECRET_ACCESS_TOKEN, async (err, val) => {
+                if (err) {
+                    res.status(403).json({ message: err });
+                    willReturn = true;
+                }
+                const userId = new ObjectId(val.id);
+                const user = await this.usersDb.findOne({_id:userId});
+                if(user._id.toString() !== val.id){
+                    res.status(403).json({ message: 'not authorized' });
+                    willReturn = true;
+                }
+            });
+            if(willReturn)return
+            await this.articlesDb.deleteOne({_id:articleId});
+            res.json({
+                message: 'success'
+            });
+        } catch (error) {
+            res.status(500).json({ error: error });
+            console.log('delete error '+error.message);
+        }
+    }
+
     searchArticles = async (req, res) => {
-        const db = client.db('articleDb').collection('articles');
         const { type, q } = req.query;
         try {
-            // if(!type || type.trim() === '' && !q || q.trim() === ''){
-            //     return res.status(400).json({ error: 'expression empty' });
-            // }
             if(!type){
                 if (!q || q.trim() === '') return
-                await client.connect();
                 const regex = new RegExp(`${q}.*?`);
-                const result = await db.find({title:{$regex: regex}}).toArray();
+                const result = await this.articlesDb.find({title:{$regex: regex}}).toArray();
                 res.json({
                     message: result
                 });
@@ -91,16 +169,28 @@ class ArticleController {
             }
             if(!q){
                 if (!type || type.trim() === '')return
-                await client.connect();
-                const result = await db.find({type:type}).toArray();
+                const result = await this.articlesDb.find({type:type}).toArray();
                 res.json({
                     message: result
                 });
                 return
             }
-            await client.connect();
             const regex = new RegExp(`${q}.*?`);
-            const result = await db.find({type:type,title:{$regex: regex}}).toArray();
+            const result = await this.articlesDb.find({type:type,title:{$regex: regex}}).toArray();
+            res.json({
+                message: result
+            });
+        } catch (error) {
+            res.status(500).json({ error: error });
+            console.log(error.message);
+        }
+    }
+
+    getUserArticles = async (req, res) => {
+        const {id} = req.params;
+        try {
+            if(!id || id.trim() === '')return
+            const result = await this.articlesDb.find({author:id}).sort({_id:-1}).toArray();
             res.json({
                 message: result
             });

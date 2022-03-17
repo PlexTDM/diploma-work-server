@@ -1,11 +1,10 @@
-// const { generateAccessToken, generateRefreshToken, sendAccessToken, sendRefreshToken } = require('./tokens');
+const { generateAccessToken, generateRefreshToken } = require('./tokens');
 const { hash, compare, genSaltSync } = require('bcryptjs');
 const { verify } = require('jsonwebtoken');
 const User = require('../models/usermodel');
 require('dotenv').config();
 
 class UserController {
-
     getUsers = async (req, res) => {
         try {
             const users = await User.find();
@@ -26,6 +25,47 @@ class UserController {
         };
     };
 
+    getUser = async (req, res) => {
+        try {
+            const authHeader = req.headers['authorization'];
+            const access_token = authHeader && authHeader.split(' ')[1];
+            if (access_token === null) return res.status(401);
+            let willReturn = false;
+            verify(access_token, process.env.SECRET_ACCESS_TOKEN, (err) => {
+                if (err) {
+                    res.status(403).json({ message: err });
+                    return willReturn = true;
+                }
+            });
+            if(willReturn) return;
+            const user = await User.findById(req.params.id);
+            if (!user) {
+                res.status(404).json({
+                    status: 404,
+                    message: 'User Not Found'
+                });
+                return;
+            }
+            const userData = {
+                _id: user._id,
+                username: user.username,
+                email: user.email,
+                number: user.number,
+                avatar: user.avatar,
+                role: user.role
+            }
+            res.json({
+                user: userData
+            });
+        } catch (error) {
+            res.json({
+                message: error.message,
+            });
+            console.log('error on getUsers: ',error)
+        };
+
+    };
+
     async registerUser(req, res) {
         try {
             const { username, email, number, password } = req.body;
@@ -34,7 +74,7 @@ class UserController {
             }
             const checkUser = await User.findOne({ 'email': email });
             if (checkUser) {
-                res.json({
+                res.status(403).json({
                     status: 403,
                     message: "Email Already in use"
                 });
@@ -47,7 +87,7 @@ class UserController {
                 email: email,
                 number: number,
                 password: hashedPassword,
-                avatar: '',
+                avatar: null,
                 // avatar pic is base64, default: empty
                 role: 'member'
                 // roles = [member, writer/author, admin];
@@ -71,8 +111,7 @@ class UserController {
             const { email, password } = req.body;
             const user = await User.findOne({ 'email': email });
             if (!user) {
-                // return res.status(404).json({
-                return res.json({
+                return res.status(404).json({
                     status: 404,
                     message: 'User not Found'
                 });
@@ -86,40 +125,53 @@ class UserController {
                 return;
             };
 
+            const userData = {
+                _id: user._id,
+                username: user.username,
+                role: user.role,
+            }
+            const refreshtoken = generateRefreshToken(user._id);
+            const accesstoken = generateAccessToken(user._id);
+            
+            userData.access_token = accesstoken;
+            userData.refresh_token = refreshtoken;
+
             res.send({
                 message: 'success',
-                user: user
+                user: userData
             });
-            // console.log(user, valid)
-
-
-            // const refreshtoken = generateRefreshToken(user.id);
-            // const accesstoken = generateAccessToken(user.id);
-            // user.accesstoken = accesstoken;
-            // user.refreshToken = refreshtoken;
-
-            // const token = new Tokens({
-            //     refreshToken: refreshtoken
-            // });
-            // const result = await token.save();
-
-            // sendRefreshToken(res, refreshtoken);
-            // sendAccessToken(req, res, accesstoken, user);
         } catch (err) {
             res.json({ message: err.message });
-            console.log(err.message);
+            console.log('error on login: ',err.message);
         };
     };
-    async refreshToken(req, res) {
-        const { refreshtoken } = req.body;
-        if (refreshtoken === null) return res.status(401);
-        const token = await Tokens.findOne({ 'refreshToken': refreshtoken });
-        if (!token) return res.status(403).json({ message: "token incorrect" });
-        verify(refreshtoken, process.env.SECRET_REFRESH_TOKEN, (err, id) => {
-            if (err) return res.status(403).json({ message: err });
-            const accesstoken = generateAccessToken(id);
-            res.json({ accesstoken: accesstoken })
-        });
+    // async refreshToken(req, res) {
+    //     const { refreshtoken } = req.body;
+    //     if (refreshtoken === null) return res.status(401);
+    //     const token = await Tokens.findOne({ 'refreshToken': refreshtoken });
+    //     if (!token) return res.status(403).json({ message: "token incorrect" });
+    //     verify(refreshtoken, process.env.SECRET_REFRESH_TOKEN, (err, id) => {
+    //         if (err) return res.status(403).json({ message: err });
+    //         const accesstoken = generateAccessToken(id);
+    //         res.json({ accesstoken: accesstoken })
+    //     });
+    // };
+
+    async getAccessToken(req, res) {
+        try {
+            const authHeader = req.headers['authorization'];
+            const refresh_token = authHeader && authHeader.split(' ')[1];
+            if (refresh_token === null) return res.status(401);
+            verify(refresh_token, process.env.SECRET_REFRESH_TOKEN, (err, id) => {
+                if (err) return res.status(403).json({ message: err });
+                // id.id is user _id
+                const access_token = generateAccessToken(id.id);
+                res.json({ access_token: access_token })
+            });
+        }
+        catch(error){
+            console.log('error on getaccesstoken', error)
+        }
     };
 
     async updateUser(req, res) {
@@ -129,9 +181,8 @@ class UserController {
             const { username, email, number, password } = req.body;
             const hashedPassword = await hash(password, 14);
 
-            const response = await User.findByIdAndUpdate(
-                { _id: req.params.id },
-                {
+            const response = await User.findByIdAndUpdate({
+                _id: req.params.id },{
                     $set: {
                         username: username,
                         email: email,
