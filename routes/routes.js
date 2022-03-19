@@ -13,6 +13,7 @@ router.delete('/delete/:id', ArticleController.deleteArticles);
 
 router.post('/login', AuthController.loginUser);
 router.post('/register', AuthController.registerUser);
+router.get('/getUsers/:skips', AuthController.getUsers);
 router.get('/getUser/:id', AuthController.getUser);
 router.post('/accesstoken', AuthController.getAccessToken);
 

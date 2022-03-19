@@ -6,8 +6,24 @@ require('dotenv').config();
 
 class UserController {
     getUsers = async (req, res) => {
+        const skips = req.params.skips;
         try {
-            const users = await User.find();
+            const authHeader = req.headers['authorization'];
+            const access_token = authHeader && authHeader.split(' ')[1];
+            if (access_token === null) return res.status(401);
+            let willReturn = false;
+            verify(access_token, process.env.SECRET_ACCESS_TOKEN, (err, data) => {
+                if (err) {
+                    res.status(403).json({ message: err });
+                    return willReturn = true;
+                }
+                if(data.role !== 'admin'){
+                    willReturn = true;
+                }
+            });
+            if (willReturn) return;
+            const users = await User.find().sort({_id:-1}).skip(skips).limit(5);
+            const count = await User.countDocuments();
             if (!users) {
                 res.status(404).json({
                     message: 'User Not Found'
@@ -16,7 +32,8 @@ class UserController {
             };
             res.json({
                 status: 200,
-                users: users
+                message: users,
+                count: count
             });
         } catch (error) {
             res.json({
@@ -31,7 +48,7 @@ class UserController {
             const access_token = authHeader && authHeader.split(' ')[1];
             if (access_token === null) return res.status(401);
             let willReturn = false;
-            verify(access_token, process.env.SECRET_ACCESS_TOKEN, (err) => {
+            verify(access_token, process.env.SECRET_ACCESS_TOKEN, (err,data) => {
                 if (err) {
                     res.status(403).json({ message: err });
                     return willReturn = true;
@@ -61,7 +78,7 @@ class UserController {
             res.json({
                 message: error.message,
             });
-            console.log('error on getUsers: ',error)
+            console.log('error on getUser: ',error)
         };
 
     };
@@ -130,8 +147,8 @@ class UserController {
                 username: user.username,
                 role: user.role,
             }
-            const refreshtoken = generateRefreshToken(user._id);
-            const accesstoken = generateAccessToken(user._id);
+            const refreshtoken = generateRefreshToken(user._id, user.role);
+            const accesstoken = generateAccessToken(user._id, user.role);
             
             userData.access_token = accesstoken;
             userData.refresh_token = refreshtoken;
@@ -165,7 +182,7 @@ class UserController {
             verify(refresh_token, process.env.SECRET_REFRESH_TOKEN, (err, id) => {
                 if (err) return res.status(403).json({ message: err });
                 // id.id is user _id
-                const access_token = generateAccessToken(id.id);
+                const access_token = generateAccessToken(id.id, id.role);
                 res.json({ access_token: access_token })
             });
         }
