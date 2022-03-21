@@ -98,9 +98,8 @@ class ArticleController {
                     res.status(403).json({ message: err });
                     willReturn = true;
                 }
-                const userId = new ObjectId(val.id);
-                const user = await this.usersDb.findOne({_id:userId});
-                if(user._id.toString() !== val.id){
+                const user = await this.articlesDb.findOne({author:val.id});
+                if(!user){
                     res.status(403).json({ message: 'not authorized' });
                     willReturn = true;
                 }

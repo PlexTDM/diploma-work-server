@@ -9,12 +9,11 @@ require('dotenv').config();
 
 const server = express();
 
-server.use(cors());
-server.use(bp.json());
-server.use(cookieParser());
-server.use(express.json());
 server.use('/static', express.static(path.join(__dirname, 'public')));
-server.use(express.urlencoded({extended: true}));
+server.use(bp.urlencoded({limit: '16mb', extended: true}));
+server.use(bp.json({limit: '16mb'}));
+server.use(cookieParser());
+server.use(cors());
 
 server.use(userRouter);
 

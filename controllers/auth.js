@@ -193,23 +193,41 @@ class UserController {
 
     async updateUser(req, res) {
         if (req.params.id === null) return res.json({ message: 'error' });
+        const { username, email, number, password, avatar, role  } = req.body;
+        const _id = req.params.id;
 
         try {
-            const { username, email, number, password } = req.body;
-            const hashedPassword = await hash(password, 14);
+            
+            const authHeader = req.headers['authorization'];
+            const access_token = authHeader && authHeader.split(' ')[1];
+            if (access_token === null) return res.status(401);
+            let willReturn = false;
+            verify(access_token, process.env.SECRET_ACCESS_TOKEN, (err, data) => {
+                if (err) {
+                    res.status(403).json({ message: err });
+                    return willReturn = true;
+                }
+                if(_id!==data.id||data.role !== 'admin'){
+                    willReturn = true;
+                    res.status(403).json({ message: 'You are not permitted' });
+                }
+            });
+            if(willReturn) return;
 
-            const response = await User.findByIdAndUpdate({
+            const hashedPassword = await hash(password, 14);
+            await User.findByIdAndUpdate({
                 _id: req.params.id },{
                     $set: {
                         username: username,
                         email: email,
                         number: number,
-                        password: hashedPassword
+                        password: hashedPassword,
+                        avatar: avatar||null,
+                        role: role,
                     }
                 });
             res.json({
-                message: 'Updated Successfully',
-                response: response
+                message: 'Updated Successfully'
             });
         } catch (error) {
             res.status(500).json({
