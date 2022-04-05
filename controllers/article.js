@@ -42,7 +42,7 @@ class ArticleController {
             res.json({ message: 'success' });
         } catch (err) {
             res.status(500).json({ error: err });
-            console.log(err);
+            console.error(err);
         }
     }
 
@@ -61,7 +61,7 @@ class ArticleController {
             });
         } catch (error) {
             res.status(500).json({ error: error });
-            console.log(error);
+            console.error(error);
         }
     }
     getArticlesById = async (req, res) => {
@@ -77,7 +77,8 @@ class ArticleController {
                 author: author[0] || {}
             });
         } catch (error) {
-
+            res.status(500).json({ error: error });
+            console.error(error);
         }
     }
 
@@ -116,7 +117,7 @@ class ArticleController {
             });
         } catch (error) {
             res.status(500).json({ error: error });
-            console.log(error.message);
+            console.error(error.message);
         }
     }
 
@@ -150,7 +151,7 @@ class ArticleController {
             });
         } catch (error) {
             res.status(500).json({ error: error });
-            console.log('delete error '+error.message);
+            console.error('delete error '+error.message);
         }
     }
 
@@ -181,7 +182,7 @@ class ArticleController {
             });
         } catch (error) {
             res.status(500).json({ error: error });
-            console.log(error.message);
+            console.error(error.message);
         }
     }
 
@@ -195,7 +196,7 @@ class ArticleController {
             });
         } catch (error) {
             res.status(500).json({ error: error });
-            console.log(error);
+            console.error(error);
         }
     }
 }
