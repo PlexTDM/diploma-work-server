@@ -4,6 +4,7 @@ const ArticleController = require('../controllers/article');
 const AuthController = require('../controllers/auth');
 
 router.get('/', ArticleController.getArticles);
+router.get('/home', ArticleController.homePage);
 router.get('/idsearch/:id', ArticleController.getArticlesById);
 router.post('/', ArticleController.uploadArticle);
 router.get('/search', ArticleController.searchArticles);

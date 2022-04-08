@@ -41,8 +41,13 @@ class UserController {
       });
     }
   };
-
   getUser = async (req, res) => {
+    if(!req.params.id||req.params.id==='undefined'){
+      res.status(400).json({
+        message: "id required"
+      })
+      return
+    }
     try {
       const authHeader = req.headers["authorization"];
       const access_token = authHeader && authHeader.split(" ")[1];
@@ -70,15 +75,17 @@ class UserController {
         number: user.number,
         avatar: user.avatar,
         role: user.role,
+        access_token: access_token,
       };
       res.json({
+        message: "success",
         user: userData,
       });
     } catch (error) {
       res.json({
         message: error.message,
       });
-      console.log("error on getUser: ", error);
+      console.error("error on getUser: ", error);
     }
   };
 
