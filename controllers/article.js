@@ -48,6 +48,7 @@ class ArticleController {
     }
 
     getArticles = async (req, res) => {
+        console.count('getArticles');
         const { limit } = req.query;
         try {
             if (!limit || limit.trim() === '') {

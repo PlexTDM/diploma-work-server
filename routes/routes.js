@@ -2,7 +2,11 @@ const express = require('express');
 const router = express.Router();
 const ArticleController = require('../controllers/article');
 const AuthController = require('../controllers/auth');
+const path = require('path');
 
+router.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+});
 router.get('/', ArticleController.getArticles);
 router.get('/home', ArticleController.homePage);
 router.get('/idsearch/:id', ArticleController.getArticlesById);
