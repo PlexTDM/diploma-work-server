@@ -173,7 +173,7 @@ class ArticleController {
             if (!type) {
                 if (!q || q.trim() === '') return
                 
-                const result = await this.articlesDb.find({ title: { $regex: regex } }).project(project).skip(skip).limit(limit).toArray();
+                const result = await this.articlesDb.find({ title: { $regex: regex } }).project(project).skip(skip).limit(limit).sort({_id:-1}).toArray();
                 const count = await this.articlesDb.countDocuments({ title: { $regex: regex } });
                 res.json({
                     message: result,
@@ -183,16 +183,16 @@ class ArticleController {
             }
             if (!q) {
                 if (!type || type.trim() === '') return
-                const result = await this.articlesDb.find({ type: type }).project(project).skip(skip).limit(limit).toArray();
+                const result = await this.articlesDb.find({ type: type }).project(project).skip(skip).limit(limit).sort({_id:-1}).toArray();
                 const count = await this.articlesDb.countDocuments({ type: type });
-                console.log(type, skip, result.length);
+                // console.log(type, skip, result.length);
                 res.json({
                     message: result,
                     count: count
                 });
                 return
             }
-            const result = await this.articlesDb.find({ type: type, title: { $regex: regex } }).project(project).skip(skip).limit(limit).toArray();
+            const result = await this.articlesDb.find({ type: type, title: { $regex: regex } }).project(project).skip(skip).sort({_id:-1}).limit(limit).toArray();
             const count = await this.articlesDb.countDocuments({ type:type,title: { $regex: regex } });
             res.json({
                 message: result,
