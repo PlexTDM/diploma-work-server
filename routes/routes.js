@@ -8,7 +8,7 @@ router.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 router.get('/', ArticleController.getArticles);
-router.get('/home', ArticleController.homePage);
+router.get('/latest/:num', ArticleController.getLatest);
 router.get('/idsearch/:id', ArticleController.getArticlesById);
 router.post('/', ArticleController.uploadArticle);
 router.get('/search', ArticleController.searchArticles);

@@ -161,28 +161,42 @@ class ArticleController {
 
     searchArticles = async (req, res) => {
         const { type, q } = req.query;
+        let limit = parseInt(req.query.limit);
+        let skip = parseInt(req.query.skip);
+        let project = req.query.project;
+        if (!limit) limit = 10;
+        if (!skip) skip = 0;
+        if (project) project = project.split(',').reduce((a, v) => ({ ...a, [v]: 1}), {})
+        if (!project) project = {title:1,body:1};
+        const regex = new RegExp(`${q}.*?`);
         try {
             if (!type) {
                 if (!q || q.trim() === '') return
-                const regex = new RegExp(`${q}.*?`);
-                const result = await this.articlesDb.find({ title: { $regex: regex } }).project({title:1, body:1}).toArray();
+                
+                const result = await this.articlesDb.find({ title: { $regex: regex } }).project(project).skip(skip).limit(limit).toArray();
+                const count = await this.articlesDb.countDocuments({ title: { $regex: regex } });
                 res.json({
-                    message: result
+                    message: result,
+                    count: count
                 });
                 return
             }
             if (!q) {
                 if (!type || type.trim() === '') return
-                const result = await this.articlesDb.find({ type: type }).toArray();
+                const result = await this.articlesDb.find({ type: type }).project(project).skip(skip).limit(limit).toArray();
+                const count = await this.articlesDb.countDocuments({ type: type });
+                console.log(type, skip, result.length);
                 res.json({
-                    message: result
+                    message: result,
+                    count: count
                 });
                 return
             }
-            const regex = new RegExp(`${q}.*?`);
-            const result = await this.articlesDb.find({ type: type, title: { $regex: regex } }).toArray();
+            const result = await this.articlesDb.find({ type: type, title: { $regex: regex } }).project(project).skip(skip).limit(limit).toArray();
+            const count = await this.articlesDb.countDocuments({ type:type,title: { $regex: regex } });
             res.json({
-                message: result
+                message: result,
+                count: count
             });
         } catch (error) {
             res.status(500).json({ error: error });
@@ -204,9 +218,10 @@ class ArticleController {
         }
     }
 
-    homePage = async (req, res) => {
+    getLatest = async (req, res) => {
+        const { num } = req.params;
         try {
-            const result = await this.articlesDb.find({}).project({title:1,poster:1}).sort({ _id: -1 }).limit(5).toArray();
+            const result = await this.articlesDb.find({}).project({title:1,poster:1}).sort({ _id: -1 }).skip(parseInt(num)).limit(1).toArray();
             res.json({
                 message: result
             });
