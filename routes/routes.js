@@ -4,6 +4,9 @@ const ArticleController = require('../controllers/article');
 const AuthController = require('../controllers/auth');
 const path = require('path');
 
+router.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+});
 // router.get('/', ArticleController.getArticles);
 router.get('/latest/:num', ArticleController.getLatest);
 router.get('/idsearch/:id', ArticleController.getArticlesById);
@@ -20,8 +23,5 @@ router.post('/login', AuthController.loginUser);
 router.put('/updateUser/:id', AuthController.updateUser);
 router.post('/accesstoken', AuthController.getAccessToken);
 
-router.get('/*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/index.html'));
-});
 
 module.exports = router;
