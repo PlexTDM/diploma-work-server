@@ -7,6 +7,10 @@ const path = require('path');
 router.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
 });
+
+router.get('/shareurl/:url', (req, res) => {
+    res.redirect('/#/article/' + req.params.url);
+});
 // router.get('/', ArticleController.getArticles);
 router.get('/latest/:num', ArticleController.getLatest);
 router.get('/idsearch/:id', ArticleController.getArticlesById);
