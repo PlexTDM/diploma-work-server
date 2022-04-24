@@ -181,6 +181,7 @@ class UserController {
   // };
 
   async getAccessToken(req, res) {
+    console.log(req.body);
     try {
       const authHeader = req.headers["authorization"];
       const refresh_token = authHeader && authHeader.split(" ")[1];
@@ -245,7 +246,7 @@ class UserController {
             },
           }
         );
-        return;
+        return res.json({ message: "success" });
       } else {
         await User.findByIdAndUpdate({ _id: req.params.id },
             {
