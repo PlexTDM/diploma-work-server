@@ -14,7 +14,7 @@ router.get('/shareurl/:url', (req, res) => {
 // router.get('/', ArticleController.getArticles);
 router.get('/latest/:num', ArticleController.getLatest);
 router.get('/idsearch/:id', ArticleController.getArticlesById);
-router.post('/', ArticleController.uploadArticle);
+router.post('/upload', ArticleController.uploadArticle);
 router.get('/search', ArticleController.searchArticles);
 router.get('/getUserArticles/:id', ArticleController.getUserArticles);
 router.put('/update/:id', ArticleController.updateArticles);

@@ -1,46 +1,39 @@
 const { MongoClient } = require('mongodb');
 var ObjectId = require('mongodb').ObjectId;
+const articleModel = require('../models/articleModel');
 const { verify } = require('jsonwebtoken');
+const usermodel = require('../models/usermodel');
 require('dotenv').config();
 
 const client = new MongoClient(process.env.MONGO_URI);
 client.connect().then(() => console.log('connected'));
 
 class ArticleController {
-    articlesDb = client.db('articleDb').collection('articles');
-    usersDb = client.db('articleDb').collection('users');
-    uploadArticle = async (req, res) => {
-        let hasError = false;
-        const authHeader = req.headers['authorization'];
-        const access_token = authHeader && authHeader.split(' ')[1];
-        if (access_token === null) return res.status(401);
-        verify(access_token, process.env.SECRET_ACCESS_TOKEN, (err) => {
-            if (err) {
-                res.status(403).json({ message: err });
-                return hasError = true;
-            }
-        });
-        if (hasError) return;
+    uploadArticle = (req, res) => {
         try {
-            const { article, author, type, title, poster } = req.body;
-            if (article.trim() === '' ||
-                author.trim() === '' ||
-                type.trim() === '' ||
-                title.trim() === '') {
-                return res.status(400).json({ error: 'expression empty' });
-            }
-            const date = new Date();
-            const fullDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} ${date.getHours()}:${(date.getMinutes() < 10 ? '0' : '') + date.getMinutes()}`;
-            const formData = {
-                title: title,
-                body: article,
-                author: author,
-                type: type,
-                date: fullDate,
-                poster: poster
-            }
-            await this.articlesDb.insertOne(formData);
-            res.json({ message: 'success' });
+            const authHeader = req.headers['authorization'];
+            const access_token = authHeader && authHeader.split(' ')[1];
+            if (access_token === null) return res.status(401);
+            verify(access_token, process.env.SECRET_ACCESS_TOKEN, async (err) => {
+                if (err) return res.status(403).json({ message: err });
+                const { article, author, type, title, poster } = req.body;
+                if (article.trim() === '' || author.trim() === '' ||
+                    type.trim() === '' || title.trim() === '') {
+                    return res.status(400).json({ error: 'expression empty' });
+                }
+                // const date = new Date();
+                // const fullDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} ${date.getHours()}:${(date.getMinutes() < 10 ? '0' : '') + date.getMinutes()}`;
+                const newArticle = new articleModel({
+                    title: title,
+                    body: article,
+                    author: author,
+                    type: type,
+                    // date: date,
+                    poster: poster
+                });
+                newArticle.save();
+                res.json({ message: 'success' });
+            });
         } catch (err) {
             res.status(500).json({ error: err });
             console.error(err);
@@ -48,17 +41,9 @@ class ArticleController {
     }
 
     getArticles = async (req, res) => {
-        console.count('getArticles');
         const { limit } = req.query;
         try {
-            if (!limit || limit.trim() === '') {
-                const result = await this.articlesDb.find({}).toArray();
-                res.json({
-                    message: result
-                });
-                return
-            }
-            const result = await this.articlesDb.find({}).limit(limit).toArray();
+            const result = await articleModel.find({}).limit(parseInt(limit) || 3).toArray();
             res.json({
                 message: result
             });
@@ -71,14 +56,17 @@ class ArticleController {
         const { id } = req.params;
         try {
             if (!id || id.trim() === '') return
-            const objId = new ObjectId(id);
-            const result = await this.articlesDb.find({ _id: objId }).toArray();
-            const authorId = new ObjectId(result[0].author);
-            const author = await this.usersDb.find({ _id: authorId }).toArray();
-            res.json({
-                article: result[0],
-                author: author[0] || {}
+            articleModel.findById(id).populate('author').exec(async (err, result) => {
+                if (err) { res.status(500).json({ error: err }); return console.error(err); };
+                if (!result) return res.status(404).json({ error: 'not found' });
+                // console.log(result);
+                const author = await usermodel.findById(result.author);
+                res.json({
+                    article: result,
+                    author: author,
+                });
             });
+
         } catch (error) {
             res.status(500).json({ error: error });
             console.error(error);
@@ -87,35 +75,24 @@ class ArticleController {
 
     updateArticles = async (req, res) => {
         const { title, body, type, poster } = req.body;
-        const _id = req.params.id;
+        const id = req.params.id;
         try {
             const authHeader = req.headers['authorization'];
             const access_token = authHeader && authHeader.split(' ')[1];
-            if (access_token === null) {
-                res.status(401);
-                return
-            }
-            const articleId = new ObjectId(_id);
-            let willReturn = false;
-            await verify(access_token, process.env.SECRET_ACCESS_TOKEN, async (err, val) => {
-                if (err) {
-                    res.status(403).json({ message: err });
-                    willReturn = true;
-                }
-                const user = await this.articlesDb.findOne({ author: val.id });
-                if (!user) {
-                    res.status(403).json({ message: 'not authorized' });
-                    willReturn = true;
+            if (access_token === null) return res.status(401);
+            verify(access_token, process.env.SECRET_ACCESS_TOKEN, async (err, val) => {
+                if (err) return res.status(403).json({ message: err });
+                const user = await articleModel.findOne({ author: val.id });
+                if (!user) return res.status(403).json({ message: 'not authorized' });
+            });
+            await articleModel.findOneAndUpdate({ _id: id }, {
+                $set: {
+                    title: title,
+                    body: body,
+                    type: type,
+                    poster: poster
                 }
             });
-            if (willReturn) return
-            const dataObj = {
-                title: title,
-                body: body,
-                type: type,
-                poster: poster
-            }
-            await this.articlesDb.findOneAndUpdate({ _id: articleId }, { $set: dataObj });
             res.json({
                 message: 'success'
             });
@@ -130,28 +107,16 @@ class ArticleController {
         try {
             const authHeader = req.headers['authorization'];
             const access_token = authHeader && authHeader.split(' ')[1];
-            if (access_token === null) {
-                res.status(401);
-                return
-            }
+            if (access_token === null) return res.status(401)
             const articleId = new ObjectId(_id);
-            let willReturn = false;
-            await verify(access_token, process.env.SECRET_ACCESS_TOKEN, async (err, val) => {
-                if (err) {
-                    res.status(403).json({ message: err });
-                    willReturn = true;
-                }
-                const userId = new ObjectId(val.id);
-                const user = await this.usersDb.findOne({ _id: userId });
-                if (user._id.toString() !== val.id) {
-                    res.status(403).json({ message: 'not authorized' });
-                    willReturn = true;
-                }
-            });
-            if (willReturn) return
-            await this.articlesDb.deleteOne({ _id: articleId });
-            res.json({
-                message: 'success'
+            verify(access_token, process.env.SECRET_ACCESS_TOKEN, async (err, val) => {
+                if (err) return res.status(403).json({ message: err });
+                const user = await usermodel.findById(val.id);
+                if (user._id.toString() !== val.id) return res.status(403).json({ message: 'not authorized' });
+                await articleModel.deleteOne({ _id: articleId });
+                res.json({
+                    message: 'success'
+                });
             });
         } catch (error) {
             res.status(500).json({ error: error });
@@ -164,34 +129,33 @@ class ArticleController {
         let limit = parseInt(req.query.limit);
         let skip = parseInt(req.query.skip);
         let project = req.query.project;
+        if (project) project = project.split(',').reduce((a, v) => ({ ...a, [v]: 1 }), {})
         if (!limit) limit = 10;
         if (!skip) skip = 0;
-        if (project) project = project.split(',').reduce((a, v) => ({ ...a, [v]: 1}), {})
-        if (!project) project = {title:1,body:1};
-        const regex = new RegExp(`${q}.*?`);
+        if (!project) project = { title: 1, body: 1, date: 1 };
+        let regex;
+        if (!q || q === 'undefined' || q.length <= 0) regex = /./
+        else regex = new RegExp(`${q}.*?`);
         try {
-            if (!type) {
-                if (!q || q.trim() === '') return
-                
-                const result = await this.articlesDb.find({ title: { $regex: regex, $options : 'i' } }).project(project).skip(skip).limit(limit).sort({_id:-1}).toArray();
-                const count = await this.articlesDb.countDocuments({ title: { $regex: regex } });
+            if (!type && q) {
+                const result = await articleModel.find({ title: { $regex: regex, $options: 'i' } }, project).skip(skip).limit(limit).sort({ _id: -1 });
+                const count = await articleModel.countDocuments({ title: { $regex: regex } });
                 return res.json({
                     message: result,
                     count: count
                 });
             }
-            if (!q) {
-                if (!type || type.trim() === '') return
-                const result = await this.articlesDb.find({ type: type}).project(project).skip(skip).limit(limit).sort({_id:-1}).toArray();
-                const count = await this.articlesDb.countDocuments({ type: type });
-                // console.log(type, skip, result.length);
+            if (!q && type) {
+                const result = await articleModel.find({ type: type }, project).skip(skip).limit(limit).sort({ _id: -1 })
+                const count = await articleModel.countDocuments({ type: type });
                 return res.json({
                     message: result,
                     count: count
                 });
             }
-            const result = await this.articlesDb.find({ type: type, title: { $regex: regex, $options : 'i' } }).project(project).skip(skip).sort({_id:-1}).limit(limit).toArray();
-            const count = await this.articlesDb.countDocuments({ type:type,title: { $regex: regex, $options : 'i' } });
+            const result = await articleModel.find({ type: type, title: { $regex: regex, $options: 'i' } }, project).skip(skip).sort({ _id: -1 }).limit(limit)
+            const count = result.length;
+            console.log(count);
             res.json({
                 message: result,
                 count: count
@@ -204,11 +168,14 @@ class ArticleController {
 
     getUserArticles = async (req, res) => {
         const { id } = req.params;
+        const { skips, limit } = req.query
         try {
             if (!id || id.trim() === '') return
-            const result = await this.articlesDb.find({ author: id }).project({title:1}).sort({ _id: -1 }).toArray();
+            const result = await articleModel.find({ author: id }, { title: 1, }).sort({ _id: -1 }).skip(parseInt(skips)).limit(parseInt(limit));
+            const count = await articleModel.countDocuments({ author: id });
             res.json({
-                message: result
+                articles: result,
+                count: count
             });
         } catch (error) {
             res.status(500).json({ error: error });
@@ -219,7 +186,7 @@ class ArticleController {
     getLatest = async (req, res) => {
         const { num } = req.params;
         try {
-            const result = await this.articlesDb.find({}).project({title:1,poster:1}).sort({ _id: -1 }).skip(parseInt(num)).limit(1).toArray();
+            const result = await articleModel.find({}, { title: 1, poster: 1 }).sort({ _id: -1 }).skip(parseInt(num)).limit(1).lean();
             res.json({
                 message: result
             });

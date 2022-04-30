@@ -23,7 +23,6 @@ class UserController {
       });
       if (willReturn) return;
       const users = await User.find().sort({ _id: -1 }).skip(skips).limit(5);
-      const count = await User.countDocuments();
       if (!users) {
         res.status(404).json({
           message: "User Not Found",
@@ -33,7 +32,7 @@ class UserController {
       res.json({
         status: 200,
         message: users,
-        count: count,
+        count: users.length,
       });
     } catch (error) {
       res.json({
