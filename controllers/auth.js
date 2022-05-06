@@ -23,6 +23,7 @@ class UserController {
       });
       if (willReturn) return;
       const users = await User.find().sort({ _id: -1 }).skip(skips).limit(5);
+      const count = await User.countDocuments();
       if (!users) {
         res.status(404).json({
           message: "User Not Found",
@@ -31,8 +32,8 @@ class UserController {
       }
       res.json({
         status: 200,
-        message: users,
-        count: users.length,
+        users: users,
+        count: count,
       });
     } catch (error) {
       res.json({
@@ -41,7 +42,7 @@ class UserController {
     }
   };
   getUser = async (req, res) => {
-    if(!req.params.id||req.params.id==='undefined'){
+    if (!req.params.id || req.params.id === 'undefined') {
       res.status(400).json({
         message: "id required"
       })
@@ -132,20 +133,15 @@ class UserController {
     try {
       const { email, password } = req.body;
       const user = await User.findOne({ email: email });
-      if (!user) {
-        return res.status(404).json({
-          status: 404,
-          message: "User not Found",
-        });
-      }
+      if (!user) return res.status(404).json({
+        status: 404,
+        message: "User not Found",
+      });
 
       const valid = await compare(password, user.password);
-      if (!valid) {
-        res.status(403).json({
-          message: "Password Incorrect",
-        });
-        return;
-      }
+      if (!valid) return res.status(403).json({
+        message: "Password Incorrect",
+      });
 
       const userData = {
         _id: user._id,
@@ -158,7 +154,7 @@ class UserController {
       userData.access_token = accesstoken;
       userData.refresh_token = refreshtoken;
 
-      res.send({
+      return res.send({
         message: "success",
         user: userData,
       });
@@ -248,15 +244,15 @@ class UserController {
         return res.json({ message: "success" });
       } else {
         await User.findByIdAndUpdate({ _id: req.params.id },
-            {
-              $set: {
-                username: username,
-                email: email,
-                number: number,
-                avatar: avatar || null,
-                role: role,
-              },
-            }
+          {
+            $set: {
+              username: username,
+              email: email,
+              number: number,
+              avatar: avatar || null,
+              role: role,
+            },
+          }
         )
       }
       res.json({
