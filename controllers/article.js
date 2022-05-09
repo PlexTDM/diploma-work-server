@@ -153,7 +153,7 @@ class ArticleController {
                 });
             }
             const result = await articleModel.find({ type: type, title: { $regex: regex, $options: 'i' } }, project).skip(skip).sort({ _id: -1 }).limit(limit)
-            const count = result.length;
+            const count = await articleModel.countDocuments({ type: type, title: { $regex: regex, $options: 'i' } }, project).skip(skip).sort({ _id: -1 })
             console.log(count);
             res.json({
                 message: result,
