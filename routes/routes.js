@@ -11,7 +11,6 @@ router.get('/', (req, res) => {
 router.get('/shareurl/:url', (req, res) => {
     res.redirect('/#/article/' + req.params.url);
 });
-// router.get('/', ArticleController.getArticles);
 router.get('/latest/:num', ArticleController.getLatest);
 router.get('/idsearch/:id', ArticleController.getArticlesById);
 router.post('/upload', ArticleController.uploadArticle);

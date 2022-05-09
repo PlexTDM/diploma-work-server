@@ -43,43 +43,36 @@ class UserController {
   };
   getUser = async (req, res) => {
     if (!req.params.id || req.params.id === 'undefined') {
-      res.status(400).json({
+      return res.status(400).json({
         message: "id required"
       })
-      return
     }
     try {
       const authHeader = req.headers["authorization"];
       const access_token = authHeader && authHeader.split(" ")[1];
       if (access_token === null) return res.status(401);
-      let willReturn = false;
       verify(access_token, process.env.SECRET_ACCESS_TOKEN, (err, data) => {
-        if (err) {
-          res.status(403).json({ message: err });
-          return (willReturn = true);
+        if (err) return res.status(403).json({ message: err });
+        const user = await User.findById(req.params.id);
+        if (!user) {
+          return res.status(404).json({
+            status: 404,
+            message: "User Not Found",
+          });
         }
-      });
-      if (willReturn) return;
-      const user = await User.findById(req.params.id);
-      if (!user) {
-        res.status(404).json({
-          status: 404,
-          message: "User Not Found",
+        const userData = {
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          number: user.number,
+          avatar: user.avatar,
+          role: user.role,
+          access_token: access_token,
+        };
+        res.json({
+          message: "success",
+          user: userData,
         });
-        return;
-      }
-      const userData = {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        number: user.number,
-        avatar: user.avatar,
-        role: user.role,
-        access_token: access_token,
-      };
-      res.json({
-        message: "success",
-        user: userData,
       });
     } catch (error) {
       res.json({
