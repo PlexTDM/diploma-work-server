@@ -51,7 +51,7 @@ class UserController {
       const authHeader = req.headers["authorization"];
       const access_token = authHeader && authHeader.split(" ")[1];
       if (access_token === null) return res.status(401);
-      verify(access_token, process.env.SECRET_ACCESS_TOKEN, (err, data) => {
+      verify(access_token, process.env.SECRET_ACCESS_TOKEN, async (err, data) => {
         if (err) return res.status(403).json({ message: err });
         const user = await User.findById(req.params.id);
         if (!user) {
@@ -181,7 +181,7 @@ class UserController {
         res.json({ access_token: access_token });
       });
     } catch (error) {
-      console.log("error on getaccesstoken", error);
+      console.error("error on getaccesstoken", error);
     }
   }
 
@@ -189,8 +189,7 @@ class UserController {
     if (req.params.id === null) return res.json({ message: "error" });
     const { username, email, number, password, avatar, role } = req.body;
     if (!username || !email || !number || !role) {
-      res.status(400).json({ message: "info not correct" });
-      return;
+      return res.status(400).json({ message: "info not correct" });
     }
     if (
       username.trim() === "" ||
@@ -198,8 +197,7 @@ class UserController {
       number.trim() === "" ||
       role.trim() === ""
     ) {
-      res.status(400).json({ message: "info not correct" });
-      return;
+      return res.status(400).json({ message: "info not correct" });
     }
     const _id = req.params.id;
 
